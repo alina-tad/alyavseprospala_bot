@@ -13,8 +13,28 @@ class Config:
     
     # Настройки LLM
     OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+    # Базовая совместимость: используем LLM_MODEL как прежний способ указания модели
     LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4")
+    # Primary / fallback модели (можно переопределять в .env)
+    LLM_PRIMARY_MODEL = os.getenv("LLM_PRIMARY_MODEL", LLM_MODEL)
+    LLM_FALLBACK_MODEL = os.getenv("LLM_FALLBACK_MODEL", "")  # по умолчанию нет
+    LLM_FALLBACK_ENABLED = os.getenv("LLM_FALLBACK_ENABLED", "true").lower() == "true"
+    # Список fallback-моделей (через запятую). Сохраняем обратную совместимость с LLM_FALLBACK_MODEL
+    LLM_FALLBACK_MODELS = [m.strip() for m in os.getenv("LLM_FALLBACK_MODELS", "").split(",") if m.strip()]
+    # Лимит генерируемых токенов
+    try:
+        LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "1200"))
+    except ValueError:
+        LLM_MAX_TOKENS = 1200
     LLM_BASE_URL = "https://openrouter.ai/api/v1"
+
+    @classmethod
+    def get_fallback_models(cls) -> list[str]:
+        """Вернуть финальный список fallback-моделей с учётом обратной совместимости"""
+        models = list(cls.LLM_FALLBACK_MODELS)
+        if not models and cls.LLM_FALLBACK_MODEL:
+            models.append(cls.LLM_FALLBACK_MODEL)
+        return models
     
     @classmethod
     def validate(cls) -> None:

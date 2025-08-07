@@ -45,8 +45,10 @@ class DataManager:
         except Exception as e:
             logger.error(f"Ошибка при сохранении данных: {e}")
     
-    def add_message(self, user_id: str, username: str, role: str, content: str) -> None:
-        """Добавление сообщения в историю пользователя"""
+    def add_message(self, user_id: str, username: str, role: str, content: str, metadata: Optional[dict] = None) -> None:
+        """Добавление сообщения в историю пользователя
+        metadata — произвольные дополнительные данные (модель, fallback, usage и т.д.)
+        """
         if user_id not in self.users_data:
             self.users_data[user_id] = {
                 "user_id": user_id,
@@ -71,6 +73,8 @@ class DataManager:
             "content": content,
             "timestamp": datetime.now().isoformat()
         }
+        if metadata:
+            message["metadata"] = metadata
         current_session["messages"].append(message)
         
         logger.info(f"Добавлено сообщение пользователю {user_id}")

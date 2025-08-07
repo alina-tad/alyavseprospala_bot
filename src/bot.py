@@ -58,7 +58,7 @@ class DreamsBot:
             
             # Проверка на администратора
             if not Config.is_admin(user_id):
-                await message.answer("⛔ У вас нет прав для выполнения этой команды.")
+                # Тихо игнорируем для не-администраторов (без ответа пользователю)
                 logger.warning(f"Пользователь {user_id} попытался выполнить команду /clear без прав администратора")
                 return
             
@@ -75,7 +75,7 @@ class DreamsBot:
             
             # Проверка на администратора
             if not Config.is_admin(user_id):
-                await message.answer("⛔ У вас нет прав для выполнения этой команды.")
+                # Тихо игнорируем для не-администраторов (без ответа пользователю)
                 logger.warning(f"Пользователь {user_id} попытался выполнить команду /export без прав администратора")
                 return
             
@@ -140,15 +140,17 @@ class DreamsBot:
                 {"role": "user", "content": f"Проанализируй этот сон: {user_message}"}
             ]
             
-            # Получение ответа от LLM
+            # Получение ответа от LLM (с поддержкой fallback)
             try:
-                response = await self.llm_client.get_response(messages)
-                await message.answer(response)
+                response_text, response_meta = await self.llm_client.generate_with_fallback(messages)
+                await message.answer(response_text)
                 
                 # Сохраняем ответ бота
-                self.data_manager.add_message(user_id, username, "assistant", response)
+                self.data_manager.add_message(user_id, username, "assistant", response_text, metadata=response_meta)
                 
-                logger.info(f"Отправлен ответ пользователю {user_id}")
+                model_used = response_meta.get("model")
+                is_fallback = response_meta.get("fallback")
+                logger.info(f"Отправлен ответ пользователю {user_id}. Модель: {model_used}, fallback: {is_fallback}")
             except Exception as e:
                 # Специфичные сообщения об ошибках
                 if "rate limit" in str(e).lower():
