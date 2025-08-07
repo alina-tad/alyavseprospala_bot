@@ -7,6 +7,8 @@ from aiogram.filters import Command
 from .config import Config
 from .llm import LLMClient
 from .data_manager import DataManager
+from .metrics import MetricsManager
+from .logging_utils import JSONEventLogger
 
 # Настройка логирования согласно @conventions.mdc
 logging.basicConfig(
@@ -24,6 +26,8 @@ class DreamsBot:
         self.dp = Dispatcher()
         self.llm_client = LLMClient()
         self.data_manager = DataManager()
+        self.metrics = MetricsManager()
+        self.events = JSONEventLogger()
         self.system_prompt = self.llm_client.create_system_prompt()
         self.setup_handlers()
         logger.info("Бот инициализирован с LLM и DataManager")
@@ -44,12 +48,14 @@ class DreamsBot:
             )
             await message.answer(welcome_text)
             logger.info(f"Пользователь {message.from_user.id} запустил бота")
+            self.events.log_event("start", {"user_id": message.from_user.id})
         
         @self.dp.message(Command("stop"))
         async def handle_stop_command(message: types.Message) -> None:
             """Обработка команды /stop"""
             await message.answer("До свидания! Возвращайся, если захочешь поговорить о снах 👋")
             logger.info(f"Пользователь {message.from_user.id} остановил бота")
+            self.events.log_event("stop", {"user_id": message.from_user.id})
         
         @self.dp.message(Command("clear"))
         async def handle_clear_command(message: types.Message) -> None:
@@ -60,6 +66,7 @@ class DreamsBot:
             if not Config.is_admin(user_id):
                 # Тихо игнорируем для не-администраторов (без ответа пользователю)
                 logger.warning(f"Пользователь {user_id} попытался выполнить команду /clear без прав администратора")
+                self.events.log_event("clear_denied", {"user_id": user_id})
                 return
             
             # Очистка истории для администратора
@@ -67,6 +74,7 @@ class DreamsBot:
             self.data_manager.clear_user_history(user_id_str)
             await message.answer("История диалога очищена. ✨")
             logger.info(f"Администратор {user_id} очистил историю")
+            self.events.log_event("clear_ok", {"user_id": user_id})
         
         @self.dp.message(Command("export"))
         async def handle_export_command(message: types.Message) -> None:
@@ -77,6 +85,7 @@ class DreamsBot:
             if not Config.is_admin(user_id):
                 # Тихо игнорируем для не-администраторов (без ответа пользователю)
                 logger.warning(f"Пользователь {user_id} попытался выполнить команду /export без прав администратора")
+                self.events.log_event("export_denied", {"user_id": user_id})
                 return
             
             try:
@@ -107,6 +116,7 @@ class DreamsBot:
                 # Удаляем временный файл
                 os.remove(filename)
                 logger.info(f"Администратор {user_id} экспортировал данные")
+                self.events.log_event("export_ok", {"user_id": user_id, "filename": filename})
                 
             except Exception as e:
                 await message.answer("❌ Ошибка при экспорте данных.")
@@ -118,10 +128,15 @@ class DreamsBot:
             user_message = message.text
             user_id = str(message.from_user.id)
             username = message.from_user.username or message.from_user.first_name or "Unknown"
+            # Игнорируем команды, чтобы их обработали соответствующие хендлеры
+            if user_message.strip().startswith('/'):
+                return
             
             # Логирование входящего сообщения
             log_message = user_message[:50] + "..." if len(user_message) > 50 else user_message
             logger.info(f"Пользователь {user_id} отправил: {log_message}")
+            # jsonl событие
+            self.events.log_event("message_in", {"user_id": user_id, "text": log_message})
             
             # Проверяем, содержит ли сообщение описание сна
             if len(user_message.strip()) < 15:
@@ -142,6 +157,7 @@ class DreamsBot:
             
             # Получение ответа от LLM (с поддержкой fallback)
             try:
+                start_ts = datetime.now()
                 response_text, response_meta = await self.llm_client.generate_with_fallback(messages)
                 await message.answer(response_text)
                 
@@ -151,6 +167,16 @@ class DreamsBot:
                 model_used = response_meta.get("model")
                 is_fallback = response_meta.get("fallback")
                 logger.info(f"Отправлен ответ пользователю {user_id}. Модель: {model_used}, fallback: {is_fallback}")
+                self.events.log_event("message_out", {"user_id": user_id, "model": model_used, "fallback": bool(is_fallback)})
+                # метрики
+                duration_ms = int((datetime.now() - start_ts).total_seconds() * 1000)
+                self.metrics.record_request(
+                    model=model_used,
+                    used_fallback=bool(is_fallback),
+                    success=True,
+                    response_time_ms=duration_ms,
+                    primary_attempt=not bool(is_fallback),
+                )
             except Exception as e:
                 # Специфичные сообщения об ошибках
                 if "rate limit" in str(e).lower():
@@ -162,6 +188,25 @@ class DreamsBot:
                 
                 await message.answer(error_message)
                 logger.error(f"Ошибка при обработке сообщения пользователя {user_id}: {e}")
+                self.events.log_event("error", {"user_id": user_id, "error": str(e)})
+
+        @self.dp.message(Command("stats"))
+        async def handle_stats_command(message: types.Message) -> None:
+            """Краткая статистика (только для администратора)"""
+            user_id = message.from_user.id
+            if not Config.is_admin(user_id):
+                # Тихо игнорируем
+                self.events.log_event("stats_denied", {"user_id": user_id})
+                return
+            stats = self.data_manager.get_statistics()
+            text = (
+                "📊 Статистика\n"
+                f"👥 Пользователи: {stats['total_users']}\n"
+                f"💬 Сессии: {stats['total_sessions']}\n"
+                f"📝 Сообщения: {stats['total_messages']}\n"
+            )
+            await message.answer(text)
+            self.events.log_event("stats_ok", {"user_id": user_id})
     
     async def start(self) -> None:
         """Запуск бота"""

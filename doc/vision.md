@@ -50,28 +50,29 @@
 ## 3. Структура проекта
 
 ```
-alyavseprospala_bot/
-├── src/
-│   ├── __init__.py         # Инициализация пакета
-│   ├── bot.py              # Telegram бот
-│   ├── llm.py              # Работа с LLM
-│   └── config.py           # Конфигурация приложения
-├── prompts/
-│   └── alyavseprospala_prompt.txt  # Системный промпт
-├── data/
-│   └── data.json           # Данные (планируется)
-├── doc/
-│   ├── guides/
-│   │   └── botfather_guide.md
-│   ├── product_idea.md
-│   ├── tasklist.md
-│   └── vision.md
-├── tests/                  # Тесты (планируется)
+cursor_dreams_bot/
+├── main.py                 # Точка входа
 ├── pyproject.toml          # Зависимости и конфигурация
 ├── uv.lock                 # Фиксированные версии
-├── .env                    # Переменные окружения
-├── main.py                 # Точка входа
-└── README.md
+├── .env                    # Переменные окружения (локально)
+├── README.md               # Основная документация
+├── prompts/
+│   └── alyavseprospala_prompt.txt  # Системный промпт
+├── src/
+│   ├── __init__.py
+│   ├── bot.py              # Telegram бот
+│   ├── llm.py              # Работа с LLM (primary + fallbacks)
+│   ├── config.py           # Конфигурация приложения
+│   └── data_manager.py     # Работа с JSON данными
+├── data/
+│   └── conversations.json  # История диалогов
+└── doc/
+    ├── guides/
+    │   └── botfather_guide.md
+    ├── product_idea.md
+    ├── tasklist.md
+    ├── vision.md
+    └── llm_doc.md
 ```
 
 ---
