@@ -52,22 +52,25 @@
 ```
 alyavseprospala_bot/
 ├── src/
+│   ├── __init__.py         # Инициализация пакета
 │   ├── bot.py              # Telegram бот
 │   ├── llm.py              # Работа с LLM
-│   └── utils.py            # Утилиты
+│   └── config.py           # Конфигурация приложения
+├── prompts/
+│   └── alyavseprospala_prompt.txt  # Системный промпт
 ├── data/
-│   └── data.json           # Данные
+│   └── data.json           # Данные (планируется)
 ├── doc/
-│   ├── README.md
+│   ├── guides/
+│   │   └── botfather_guide.md
 │   ├── product_idea.md
+│   ├── tasklist.md
 │   └── vision.md
-├── tests/
-│   └── test_basic.py       # Базовые тесты
-├── Dockerfile
-├── Makefile
-├── pyproject.toml
-├── .env                    # Конфигурация
-├── main.py
+├── tests/                  # Тесты (планируется)
+├── pyproject.toml          # Зависимости и конфигурация
+├── uv.lock                 # Фиксированные версии
+├── .env                    # Переменные окружения
+├── main.py                 # Точка входа
 └── README.md
 ```
 

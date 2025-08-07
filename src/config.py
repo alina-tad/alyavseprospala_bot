@@ -11,6 +11,11 @@ class Config:
     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
     ADMIN_USER_ID = os.getenv("ADMIN_USER_ID")  # ID администратора бота
     
+    # Настройки LLM
+    OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+    LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4")
+    LLM_BASE_URL = "https://openrouter.ai/api/v1"
+    
     @classmethod
     def validate(cls) -> None:
         """Проверка обязательных настроек"""
@@ -28,6 +33,10 @@ class Config:
                 int(cls.ADMIN_USER_ID)
             except ValueError:
                 raise ValueError("ADMIN_USER_ID должен быть числом")
+        
+        # Проверка настроек LLM
+        if not cls.OPENROUTER_API_KEY:
+            raise ValueError("OPENROUTER_API_KEY не установлен в .env файле")
     
     @classmethod
     def get_log_level(cls) -> int:
