@@ -8,7 +8,7 @@ from .config import Config
 from .llm import LLMClient
 from .data_manager import DataManager
 from .metrics import MetricsManager
-from .logging_utils import JSONEventLogger
+from .logging_utils import JSONEventLogger, setup_structured_file_logging
 
 # Настройка логирования согласно @conventions.mdc
 logging.basicConfig(
@@ -30,6 +30,8 @@ class DreamsBot:
         self.events = JSONEventLogger()
         self.system_prompt = self.llm_client.create_system_prompt()
         self.setup_handlers()
+        # структурированный файл-лог
+        setup_structured_file_logging()
         logger.info("Бот инициализирован с LLM и DataManager")
     
     def setup_handlers(self) -> None:
@@ -199,11 +201,21 @@ class DreamsBot:
                 self.events.log_event("stats_denied", {"user_id": user_id})
                 return
             stats = self.data_manager.get_statistics()
+            # Сжато: ключевые показатели + последние LLM-метрики из файла
+            from .metrics import MetricsManager
+            mm = MetricsManager()
+            m = mm.metrics
+            avg_ms = 0
+            if m["timings"]["response_ms_count"]:
+                avg_ms = int(m["timings"]["response_ms_sum"] / m["timings"]["response_ms_count"])  # noqa: E501
             text = (
                 "📊 Статистика\n"
                 f"👥 Пользователи: {stats['total_users']}\n"
                 f"💬 Сессии: {stats['total_sessions']}\n"
                 f"📝 Сообщения: {stats['total_messages']}\n"
+                f"⚙️ Запросы LLM: {m['totals']['requests']}, ошибки: {m['totals']['errors']}\n"
+                f"🧠 Primary success: {m['llm']['primary_success']}, Fallback success: {m['llm']['fallback_success']}\n"  # noqa: E501
+                f"⏱️ Ср. время ответа: {avg_ms} мс\n"
             )
             await message.answer(text)
             self.events.log_event("stats_ok", {"user_id": user_id})
