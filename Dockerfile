@@ -10,7 +10,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Установка uv
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
-ENV PATH="/root/.cargo/bin:${PATH}"
+# uv устанавливается в ~/.local/bin по умолчанию
+ENV PATH="/root/.local/bin:${PATH}"
 
 WORKDIR /app
 
@@ -28,6 +29,8 @@ RUN if [ "$INSTALL_DEV" = "true" ]; then \
 COPY main.py ./
 COPY src ./src
 COPY prompts ./prompts
+# Тесты (для контейнерного прогона)
+COPY tests ./tests
 # Создаем каталог данных
 RUN mkdir -p /app/data
 

@@ -38,24 +38,28 @@ class Config:
     
     @classmethod
     def validate(cls) -> None:
-        """Проверка обязательных настроек"""
-        if not cls.TELEGRAM_BOT_TOKEN:
+        """Проверка обязательных настроек. Читает значения напрямую из окружения."""
+        telegram_token = os.getenv("TELEGRAM_BOT_TOKEN")
+        if not telegram_token:
             raise ValueError("TELEGRAM_BOT_TOKEN не установлен в .env файле")
-        
+
         # Проверка корректности уровня логирования
         valid_levels = ["DEBUG", "INFO", "WARNING", "ERROR"]
-        if cls.LOG_LEVEL not in valid_levels:
+        log_level = os.getenv("LOG_LEVEL", "INFO")
+        if log_level not in valid_levels:
             raise ValueError(f"LOG_LEVEL должен быть одним из: {valid_levels}")
-        
+
         # Проверка ID администратора (опционально)
-        if cls.ADMIN_USER_ID:
+        admin_id = os.getenv("ADMIN_USER_ID")
+        if admin_id:
             try:
-                int(cls.ADMIN_USER_ID)
+                int(admin_id)
             except ValueError:
                 raise ValueError("ADMIN_USER_ID должен быть числом")
-        
+
         # Проверка настроек LLM
-        if not cls.OPENROUTER_API_KEY:
+        openrouter_key = os.getenv("OPENROUTER_API_KEY")
+        if not openrouter_key:
             raise ValueError("OPENROUTER_API_KEY не установлен в .env файле")
     
     @classmethod
@@ -65,7 +69,10 @@ class Config:
     
     @classmethod
     def is_admin(cls, user_id: int) -> bool:
-        """Проверить, является ли пользователь администратором"""
-        if not cls.ADMIN_USER_ID:
+        """Проверить, является ли пользователь администратором.
+        Читает ADMIN_USER_ID из окружения для корректности в тестах.
+        """
+        admin_env = os.getenv("ADMIN_USER_ID")
+        if not admin_env:
             return False
-        return str(user_id) == cls.ADMIN_USER_ID 
+        return str(user_id) == admin_env
